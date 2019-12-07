@@ -15,7 +15,4 @@ function frame = chroma_subsamp_420(height, width, frame)
     %row/col reconstruction
     frame(row_del, :, 2:3) = frame(row_del-1, :, 2:3);
     frame(:, col_del, 2:3) = frame(:, col_del-1, 2:3);
-    
-    %convert back to RGB
-    frame = ycbcr2rgb(frame);
 end

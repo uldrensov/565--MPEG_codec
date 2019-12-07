@@ -8,8 +8,9 @@ function void = hw_565_4()
     frame_nums = 7:11;
     timestamps = (frame_nums-1)/vid_info.FrameRate;
     
-    %for storing PSNR
+    %for storing PSNR & MSE
     frame_PSNR = zeros(1,5);
+    MSE = zeros(1,5);
     
     
 %STEP 1: I-FRAME
@@ -21,13 +22,13 @@ function void = hw_565_4()
     %perform DCT, quantisation, inv. quantisation, and IDCT on I-frame
     ifram = DCT_QUANT(vid_info.Height, vid_info.Width, ifram);
     
-    %calculate PSNR
-    frame_PSNR(1) = psnr(ifram, orig_fram, 255);
+    %calculate PSNR, MSE
+    frame_PSNR(1) = psnr(ycbcr2rgb(ifram), orig_fram, 255);
+    MSE(1) = immse(ycbcr2rgb(ifram), orig_fram);
     fprintf("PSNR(I-frame): %d\n", frame_PSNR(1));
     
-    %store I-frame as reference for the next frame
-    ref = ifram;
-    figure, imshow(ifram);
+    %display RGB variant
+    figure, imshow(ycbcr2rgb(ifram));
        
     
 %STEP 2: P-FRAME 1
@@ -44,7 +45,7 @@ function void = hw_565_4()
     curr = chroma_subsamp_420(vid_info.Height, vid_info.Width, orig_fram);
     
     %perform motion estimation between current and reference frames
-    blocky = motion_est(vid_info.Height, vid_info.Width, ref, curr);
+    blocky = motion_est(vid_info.Height, vid_info.Width, ifram, curr);
     
     %produce residual frame and perform DCT/quantisation on it
     residuals = zeros(vid_info.Height, vid_info.Width, 3, 4);
@@ -55,24 +56,24 @@ function void = hw_565_4()
     %reconstruct the P-frame and replace its raw counterpart in the album
     album(:,:,:,2) = uint8(double(blocky) + residuals(:,:,:,1));
     
-    %calculate PSNR
-    frame_PSNR(2) = psnr(album(:,:,:,2), orig_fram, 255);
+    %calculate PSNR, MSE
+    frame_PSNR(2) = psnr(ycbcr2rgb(album(:,:,:,2)), orig_fram, 255);
+    MSE(2) = immse(ycbcr2rgb(album(:,:,:,2)), orig_fram);
     fprintf("PSNR(P-frame #1): %d\n", frame_PSNR(2));
-    figure, imshow(album(:,:,:,2));
+    
+    %display RGB variant
+    figure, imshow(ycbcr2rgb(album(:,:,:,2)));
     
     
 %STEP 3: P-FRAMES 2-4
     %loop through the above process now that the I-frame is no longer needed
     for n=3:5
-        %retrieve previously reconstructed frame as the new reference frame
-        %ref = album(:,:,:,n-1);
-        
         %perform 4:2:0 on current frame
         orig_fram = album(:,:,:,n);
         curr = chroma_subsamp_420(vid_info.Height, vid_info.Width, orig_fram);
         
         %perform motion estimation
-        blocky = motion_est(vid_info.Height, vid_info.Width, ref, curr);
+        blocky = motion_est(vid_info.Height, vid_info.Width, ifram, curr);
         
         %produce and DCT/quantise residual frame
         residuals(:,:,:,n-1) = double(curr) - double(blocky);
@@ -82,18 +83,21 @@ function void = hw_565_4()
         %reconstruct and replace P-frame
         album(:,:,:,n) = uint8(double(blocky) + residuals(:,:,:,n-1));
         
-        %PSNR
-        frame_PSNR(n) = psnr(album(:,:,:,n), orig_fram, 255);
+        %PSNR, MSE
+        frame_PSNR(n) = psnr(ycbcr2rgb(album(:,:,:,n)), orig_fram, 255);
+        MSE(n) = immse(ycbcr2rgb(album(:,:,:,n)), orig_fram);
         fprintf("PSNR(P-frame #%d): %d\n", n-1, frame_PSNR(n));
-        figure, imshow(album(:,:,:,n));
+        
+        %display RGB variant
+        figure, imshow(ycbcr2rgb(album(:,:,:,n)));
     end
     
     %average PSNR for all frames involved
-    fprintf("AVERAGE: %d\n", sum(frame_PSNR)/5);
+    fprintf("AVERAGE: %d\n\n", sum(frame_PSNR)/5);
+    
+    %display MSE
+    fprintf("MSE(I-frame): %d\n", MSE(1));
+    for N=2:5
+        fprintf("MSE(P-frame #%d): %d\n", N-1, MSE(N));
+    end
 end
-
-%MSE for reconst frames?
-%show vectors too?
-
-%error frame + Ycomp of motion est = reconst???
-%Ycomp of 420 used with Iframe for mocomp

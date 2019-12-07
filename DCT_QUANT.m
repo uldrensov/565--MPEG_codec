@@ -4,9 +4,6 @@ function frame = DCT_QUANT(height, width, frame)
     %constant quantisation matrix
     Q = 28*ones(8,8);
     
-    %YCbCr conversion
-    frame = rgb2ycbcr(frame);
-    
     %DCT of each spectrum
     Y = blkproc(frame(:,:,1), [8 8], @dct2);
     Cb = blkproc(frame(:,:,2), [8 8], @dct2);
@@ -31,9 +28,8 @@ function frame = DCT_QUANT(height, width, frame)
     Cb = blkproc(Cb,[8 8],@idct2);
     Cr = blkproc(Cr,[8 8],@idct2);
     
-    %reattach the component spectra and convert back to RGB
+    %reattach the component spectra
     frame(:,:,1) = Y;
     frame(:,:,2) = Cb;
     frame(:,:,3) = Cr;
-    frame = ycbcr2rgb(frame);
 end
